@@ -16,8 +16,6 @@ class File(object):
         self.push = push
         self.pull = pull
         path = os.path.abspath(path)
-        if os.path.isdir(path):
-            path += '/'
         self.path = path
         assert self.is_from or self.is_to, 'Cannot resolve path: %s' % path
 
@@ -70,10 +68,14 @@ class File(object):
     def from_path(self):
         """Where is the file in the source path."""
         if self.is_from:
-            return self.path
-        if self.is_to:
+            path = self.path
+        elif self.is_to:
             to_root = [root for root in self.to_roots if root in self.path][0]
-            return self.path.replace(to_root, self.from_root)
+            path = self.path.replace(to_root, self.from_root)
+        if os.path.isdir(path):
+            if '/' != path[-1]:
+                path = path + '/'
+        return path
 
     @property
     def to_paths(self):
@@ -110,7 +112,7 @@ class File(object):
             assert self.from_path not in to_path
             command = ['rsync', '-rtv', '--progress', self.from_path, to_path]
             print command
-        # subprocess.call()
+            subprocess.call(command)
 
 def get_configs(config_path=None):
     """Load src to dests mappings from ~/.back.ini"""
