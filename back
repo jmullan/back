@@ -33,7 +33,7 @@ class File(object):
                     for target in targets:
                         if target in self.path:
                             roots.add(root)
-            assert roots
+            assert roots, 'No root for %s in %s' % (self.path, self.mappings)
             self._from_root = max(roots, key=len)
         assert self._from_root
         return self._from_root
