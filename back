@@ -15,7 +15,6 @@ class File(object):
         assert not push or not pull
         self.push = push
         self.pull = pull
-        path = os.path.abspath(path)
         self.path = path
         assert self.is_from or self.is_to, 'Cannot resolve path: %s' % path
 
@@ -62,7 +61,7 @@ class File(object):
     @property
     def exists(self):
         """Does the file exist."""
-        return os.path.exists(self.path)
+        return (':' in self.path) or os.path.exists(self.path)
 
     @property
     def from_path(self):
@@ -72,6 +71,10 @@ class File(object):
         elif self.is_to:
             to_root = [root for root in self.to_roots if root in self.path][0]
             path = self.path.replace(to_root, self.from_root)
+
+        if ':' not in path:
+            path = os.path.abspath(path)
+
         if os.path.isdir(path):
             if '/' != path[-1]:
                 path = path + '/'
