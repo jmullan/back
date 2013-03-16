@@ -25,12 +25,12 @@ class File(object):
             roots = set()
             if not self.pull:
                 for root in self.mappings:
-                    if root in self.path:
+                    if self.full_path.startswith(root):
                         roots.add(root)
             if not self.push:
                 for root, targets in self.mappings.items():
                     for target in targets:
-                        if target in self.path:
+                        if self.full_path.startswith(root):
                             roots.add(root)
             assert roots, 'No root for %s in %s' % (self.path, self.mappings)
             self._from_root = max(roots, key=len)
@@ -59,21 +59,30 @@ class File(object):
                                      for root in self.to_roots)
 
     @property
+    def is_remote(self):
+        return self.path.count(':') == 1 and not os.path.exists(self.path)
+
+    @property
     def exists(self):
         """Does the file exist."""
-        return (':' in self.path) or os.path.exists(self.path)
+        return self.is_remote or os.path.exists(self.path)
+
+    @property
+    def full_path(self):
+        if self.is_remote:
+            return self.path
+        else:
+            return os.path.abspath(self.path)
 
     @property
     def from_path(self):
         """Where is the file in the source path."""
         if self.is_from:
-            path = self.path
+            path = self.full_path
         elif self.is_to:
-            to_root = [root for root in self.to_roots if root in self.path][0]
+            to_root = [to_root for to_root in self.to_roots
+                       if self.path.startswith(to_root)][0]
             path = self.path.replace(to_root, self.from_root)
-
-        if ':' not in path:
-            path = os.path.abspath(path)
 
         if os.path.isdir(path):
             if '/' != path[-1]:
