@@ -2,7 +2,11 @@
 """Back up a file or files."""
 import os
 import subprocess
+import logging
 from optparse import OptionParser
+
+FORMAT = '%(levelname)s %(lineno)d %(message)s'
+logging.basicConfig(format=FORMAT)
 
 class File(object):
 
@@ -27,10 +31,14 @@ class File(object):
                 for root in self.mappings:
                     if self.full_path.startswith(root):
                         roots.add(root)
+                    if self.path.startswith(root):
+                        roots.add(root)
             if not self.push:
                 for root, targets in self.mappings.items():
                     for target in targets:
-                        if self.full_path.startswith(root):
+                        if self.full_path.startswith(target):
+                            roots.add(root)
+                        if self.path.startswith(target):
                             roots.add(root)
             assert roots, 'No root for %s in %s' % (self.path, self.mappings)
             self._from_root = max(roots, key=len)
@@ -123,7 +131,6 @@ class File(object):
         for to_path in self.to_paths:
             assert self.from_path not in to_path
             command = ['rsync', '-rtv', '--progress', self.from_path, to_path]
-            print command
             subprocess.call(command)
 
 def get_configs(config_path=None):
@@ -178,14 +185,24 @@ def main():
         to_roots = [x.strip() for x in to_root.split(',')]
     else:
         to_roots = []
-    if not mappings and from_root and to_roots:
-        mappings = {from_root: to_roots}
     if from_root:
-        if from_root in mappings:
+        if to_roots:
+            mappings = {from_root: to_roots}
+        elif from_root in mappings:
             mappings = {from_root: mappings[from_root]}
         else:
             raise ValueError(
                 'No "to" available for files from {}'.format(from_root))
+    if to_roots and not from_root:
+        new_mappings = {}
+        for from_root, candidate_to_roots in mappings.items():
+            candidate_to_roots = list(set(to_roots).intersection(
+                candidate_to_roots))
+            if candidate_to_roots:
+                new_mappings[from_root] = candidate_to_roots
+        if not new_mappings:
+            raise ValueError(
+                'Could not find from for {}'.format(to_roots))
     assert(mappings)
     if len(args) < 1:
         print 'You must supply at least one path to back up'
