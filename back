@@ -111,6 +111,7 @@ class File(object):
     @property
     def from_path(self):
         """Where is the file in the source path."""
+        is_dir = os.path.isdir(self.full_path)
         if self.is_from:
             self.quietly('file is from')
             path = self.full_path
@@ -122,15 +123,19 @@ class File(object):
             self.quietly('replacing %s with %s in %s' % (
                 to_root, self.from_root, self.full_path))
             path = self.full_path.replace(to_root, self.from_root)
-        if os.path.isdir(path):
+        if is_dir:
             if '/' != path[-1]:
                 path = path + '/'
         return path
 
     @property
+    def from_path_remote(self):
+        return self.from_path.count(':') == 1
+
+    @property
     def from_path_exists(self):
         """Does the path we are trying to copy from even exist?"""
-        return os.path.exists(self.from_path)
+        return self.from_path_remote or os.path.exists(self.from_path)
 
     @property
     def to_paths(self):
@@ -163,13 +168,14 @@ class File(object):
     def backup(self):
         """rsync the file correctly."""
         # self.mkdir()
-        assert self.from_path_exists
+        assert self.from_path_exists, '%s does not exist' % self.from_path
         self.quietly('from_path %s to_paths %s' % (
                 self.from_path, self.to_paths))
         for to_path in self.to_paths:
             assert self.from_path not in to_path, '%s should not be in %s' % (
                 self.from_path, to_path)
-            command = ['rsync', '-rtv', '--progress', self.from_path, to_path]
+            command = ['rsync', '-rtvl', '--progress', self.from_path, to_path]
+            print ' '.join(command)
             subprocess.call(command)
 
 def get_configs(config_path=None):
