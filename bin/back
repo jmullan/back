@@ -1,0 +1,88 @@
+#!/usr/bin/env python
+"""Back up a file or files."""
+import os
+import logging
+
+from back import back
+from optparse import OptionParser
+
+FORMAT = '%(levelname)s %(lineno)d %(message)s'
+logging.basicConfig(format=FORMAT)
+
+
+def main():
+    """Do it."""
+    parser = OptionParser()
+    parser.add_option('-f', '--from', dest='from_root', default=None,
+                      help='Use this as the source root')
+    parser.add_option('-t', '--to', dest='to_root', default=None,
+                      help='Use this as the backup root')
+    parser.add_option('--push', dest='assume_from',
+                      action='store_true', default=False,
+                      help='Look in the sources for root of file')
+    parser.add_option('--pull', dest='assume_to',
+                      action='store_true', default=False,
+                      help='Look in the destinations for root of file')
+    parser.add_option('-v', '--verbose', dest='verbose',
+                      action='store_true', default=False,
+                      help='verbose is more verbose')
+    (options, args) = parser.parse_args()
+    options = options.__dict__
+    if options.get('push') and options.get('pull'):
+        raise ValueError('Do not specify push and pull together')
+    if options.get('from_root') is not None:
+        from_root = options.get('from_root')
+        if not os.path.exists(from_root):
+            raise ValueError('Path does not exist: {}'.format(from_root))
+    if options.get('to') is not None:
+        to_root = options.get('to')
+        if not os.path.exists(to_root):
+            raise ValueError('Path does not exist: {}'.format(to_root))
+    verbose = options.get('verbose')
+    configs = back.get_configs()
+    mappings = {}
+    for temp_root, config in configs.items():
+        mappings[temp_root] = config.get('dest', [])
+    from_root = options.get('from_root')
+    to_root = options.get('to_root')
+    if to_root is not None:
+        to_roots = [x.strip() for x in to_root.split(',')]
+    else:
+        to_roots = []
+    if from_root:
+        if to_roots:
+            mappings = {from_root: to_roots}
+        elif from_root in mappings:
+            mappings = {from_root: mappings[from_root]}
+        else:
+            raise ValueError(
+                'No "to" available for files from {}'.format(from_root))
+    if to_roots and not from_root:
+        new_mappings = {}
+        for from_root, candidate_to_roots in mappings.items():
+            candidate_to_roots = list(set(to_roots).intersection(
+                candidate_to_roots))
+            if candidate_to_roots:
+                new_mappings[from_root] = candidate_to_roots
+        if not new_mappings:
+            raise ValueError(
+                'Could not find from for {}'.format(to_roots))
+    assert(mappings)
+    if len(args) < 1:
+        print 'You must supply at least one path to back up'
+    for arg in args:
+        the_file = back.File(
+            mappings, options.get('push'), options.get('pull'),
+            arg, verbose=verbose)
+        if verbose:
+            print 'path %s' % the_file.path
+            print 'exists %s' % the_file.exists
+            print 'is_from %s' % the_file.is_from
+            print 'is_to %s' % the_file.is_to
+            print 'is_backed %s' % the_file.is_backed
+            print 'from_path %s' % the_file.from_path
+            print 'to_paths %s' % the_file.to_paths
+        the_file.backup()
+
+if __name__ == "__main__":
+    main()
