@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """Back up a file or files."""
 import os
 import logging
 
 from back import back
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 FORMAT = '%(levelname)s %(lineno)d %(message)s'
 logging.basicConfig(format=FORMAT)
@@ -12,39 +12,44 @@ logging.basicConfig(format=FORMAT)
 
 def main():
     """Do it."""
-    parser = OptionParser()
-    parser.add_option('-f', '--from', dest='from_root', default=None,
-                      help='Use this as the source root')
-    parser.add_option('-t', '--to', dest='to_root', default=None,
-                      help='Use this as the backup root')
-    parser.add_option('--push', dest='assume_from',
-                      action='store_true', default=False,
-                      help='Look in the sources for root of file')
-    parser.add_option('--pull', dest='assume_to',
-                      action='store_true', default=False,
-                      help='Look in the destinations for root of file')
-    parser.add_option('-v', '--verbose', dest='verbose',
-                      action='store_true', default=False,
-                      help='verbose is more verbose')
-    (options, args) = parser.parse_args()
-    options = options.__dict__
-    if options.get('push') and options.get('pull'):
+    parser = ArgumentParser()
+    parser.add_argument('-i', '--ini', dest='ini', default=None,
+                        help="Load this .ini file")
+    parser.add_argument('-f', '--from', dest='from_root', default=None,
+                        help='Use this as the source root')
+    parser.add_argument('-t', '--to', dest='to_root', default=None,
+                        help='Use this as the backup root')
+    parser.add_argument('--push', dest='assume_from',
+                        action='store_true', default=False,
+                        help='Look in the sources for root of file')
+    parser.add_argument('--pull', dest='assume_to',
+                        action='store_true', default=False,
+                        help='Look in the destinations for root of file')
+    parser.add_argument('-v', '--verbose', dest='verbose',
+                        action='store_true', default=False,
+                        help='verbose is more verbose')
+    parser.add_argument(
+        'filenames', metavar='N', type=str, nargs='+',
+        help='A list of filenames'
+    )
+    options = parser.parse_args()
+    if options.assume_from and options.assume_to:
         raise ValueError('Do not specify push and pull together')
-    if options.get('from_root') is not None:
-        from_root = options.get('from_root')
+    from_root = None
+    if options.from_root is not None:
+        from_root = options.from_root
         if not os.path.exists(from_root):
             raise ValueError('Path does not exist: {}'.format(from_root))
-    if options.get('to') is not None:
-        to_root = options.get('to')
+    to_root = None
+    if options.to_root is not None:
+        to_root = options.to_root
         if not os.path.exists(to_root):
             raise ValueError('Path does not exist: {}'.format(to_root))
-    verbose = options.get('verbose')
-    configs = back.get_configs()
+    verbose = options.verbose
+    configs = back.get_configs(options.ini)
     mappings = {}
     for temp_root, config in configs.items():
         mappings[temp_root] = config.get('dest', [])
-    from_root = options.get('from_root')
-    to_root = options.get('to_root')
     if to_root is not None:
         to_roots = [x.strip() for x in to_root.split(',')]
     else:
@@ -67,13 +72,13 @@ def main():
         if not new_mappings:
             raise ValueError(
                 'Could not find from for {}'.format(to_roots))
-    assert(mappings)
-    if len(args) < 1:
+    assert mappings
+    if len(options.filenames) < 1:
         print 'You must supply at least one path to back up'
-    for arg in args:
+    for filename in options.filenames:
         the_file = back.File(
-            mappings, options.get('push'), options.get('pull'),
-            arg, verbose=verbose)
+            mappings, options.assume_from, options.assume_to,
+            filename, verbose=verbose)
         if verbose:
             print 'path %s' % the_file.path
             print 'exists %s' % the_file.exists
