@@ -12,7 +12,7 @@ setup(
     description="Semi-autmoatic rsync configuration",
     license="GPLv3+",
     author="Jesse Mullan",
-    author_email="jmullan@visi.com",
+    author_email="jmullan@gmail.com",
     url="http://github.com/jmullan/back",
     classifiers=[
         "Development Status :: 3 - Alpha",
